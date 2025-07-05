@@ -80,12 +80,14 @@ class WIDE_TabTransformer:
         wide_processed = Dense(32, activation='relu')(wide)
         wide_processed = Dropout(args.dropout)(wide_processed)
 
-        # Fusion des composants wide et TabTransformer
-        merged = Concatenate(axis=-1)([wide_processed, tab_reduced])
-        flattened = Flatten()(merged)
+        wide_flattened = Flatten()(wide_processed)
+        tab_flattened = Flatten()(tab_reduced)
+    
+    # Fusion des composants wide et TabTransformer
+        merged = Concatenate(axis=-1)([wide_flattened, tab_flattened])
         
         # Couches finales
-        final_dense = Dense(128, activation='relu')(flattened)
+        final_dense = Dense(128, activation='relu')(merged)
         final_dense = Dropout(args.dropout)(final_dense)
         final_dense = Dense(64, activation='relu')(final_dense)
         final_dense = Dropout(args.dropout)(final_dense)
