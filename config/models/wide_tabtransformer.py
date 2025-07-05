@@ -69,28 +69,28 @@ class WIDE_TabTransformer:
 
         # Apply TabTransformer avec plus de dropout
         tab_transformer = TabTransformer(
-            num_heads=8,
-            key_dim=64,
-            ff_dim=256,
-            num_layers=3,
-            dropout_rate=0.3  # Augmenté de 0.15 à 0.3
+            num_heads=6,
+            key_dim=32,
+            ff_dim=128,
+            num_layers=2,
+            dropout_rate=0.4  # Augmenté de 0.15 à 0.3
         )(tab)
 
         # Réduction dimensionnelle avec régularisation
-        tab_reduced = Dense(128, activation='relu', 
-                        kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(tab_transformer)
+        tab_reduced = Dense(64, activation='relu', 
+                        kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(tab_transformer)
         tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.4)(tab_reduced)  # Dropout plus élevé
-        tab_reduced = Dense(64, activation='relu',
-                        kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(tab_reduced)
+        tab_reduced = Dropout(0.5)(tab_reduced)  # Dropout plus élevé
+        tab_reduced = Dense(32, activation='relu',
+                        kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(tab_reduced)
         tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.3)(tab_reduced)
+        tab_reduced = Dropout(0.4)(tab_reduced)
 
         # Traitement de la partie wide avec régularisation
-        wide_processed = Dense(32, activation='relu',
-                            kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(wide)
+        wide_processed = Dense(16, activation='relu',
+                            kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(wide)
         wide_processed = BatchNormalization()(wide_processed)
-        wide_processed = Dropout(0.3)(wide_processed)
+        wide_processed = Dropout(0.4)(wide_processed)
 
         # Flatten avant concatenation
         wide_flattened = Flatten()(wide_processed)
@@ -100,22 +100,22 @@ class WIDE_TabTransformer:
         merged = Concatenate(axis=-1)([wide_flattened, tab_flattened])
         
         # Couches finales avec moins de neurones et plus de régularisation
-        final_dense = Dense(64, activation='relu',  # Réduit de 128 à 64
-                        kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(merged)
+        final_dense = Dense(32, activation='relu',  # Réduit de 128 à 64
+                        kernel_regularizer=l1_l2(l1=0.003, l2=0.003))(merged)
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.5)(final_dense)  # Dropout élevé
+        final_dense = Dropout(0.6)(final_dense)  # Dropout élevé
         
-        final_dense = Dense(32, activation='relu',  # Réduit de 64 à 32
-                        kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(final_dense)
+        final_dense = Dense(16, activation='relu',  # Réduit de 64 à 32
+                        kernel_regularizer=l1_l2(l1=0.003, l2=0.003))(final_dense)
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.4)(final_dense)
+        final_dense = Dropout(0.5)(final_dense)
         
         output = Dense(2, activation='softmax')(final_dense)
 
         model = Model(inputs=inputs, outputs=output)
         
         # Optimizer avec learning rate plus faible
-        optimizer = Adam(learning_rate=0.0001)  # Réduit de 0.0005 à 0.0001
+        optimizer = Adam(learning_rate=5e-5)  # Réduit de 0.0005 à 0.0001
         model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
         return model
@@ -124,7 +124,7 @@ class WIDE_TabTransformer:
         # Callbacks pour améliorer l'apprentissage
         early_stopping = EarlyStopping(
             monitor='val_loss',
-            patience=8,  # Arrêt si pas d'amélioration pendant 8 epochs
+            patience=15,  # Arrêt si pas d'amélioration pendant 8 epochs
             restore_best_weights=True,
             verbose=1
         )
@@ -132,7 +132,7 @@ class WIDE_TabTransformer:
         reduce_lr = ReduceLROnPlateau(
             monitor='val_loss',
             factor=0.5,  # Divise le LR par 2
-            patience=4,  # Réduit le LR si pas d'amélioration pendant 4 epochs
+            patience=6,  # Réduit le LR si pas d'amélioration pendant 4 epochs
             min_lr=1e-6,
             verbose=1
         )
