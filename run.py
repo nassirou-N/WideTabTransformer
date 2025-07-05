@@ -10,6 +10,7 @@ import pandas as pd
 from config.arg_parser import parameter_parser
 import warnings
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Set print options to display the entire array
 np.set_printoptions(threshold=np.inf)
@@ -110,10 +111,12 @@ def main():
     model.model.summary()
     
     print("\nStarting training...")
-    model.train()
+    history = model.train()
+    model.plot_training_curves(history)
     
     print("\nEvaluating model...")
     model.test()
+
 
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
