@@ -20,7 +20,7 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.regularizers import l1_l2
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import matplotlib.pyplot as plt
-
+from tensorflow.keras.callbacks import ModelCheckpoint
 # Set print options to display the entire array
 np.set_printoptions(threshold=np.inf)
 warnings.filterwarnings("ignore")
@@ -39,23 +39,27 @@ class WIDE_TabTransformer:
         self.vectors = np.stack(data.iloc[:, 0].values)
         self.labels = data.iloc[:, 1].values
 
+        # AUGMENTATION DE DONNÉES - CRITIQUE POUR 99%
+        self.vectors, self.labels = self.augment_data(self.vectors, self.labels)
+
         positive_idxs = np.where(self.labels == 1)[0]
         negative_idxs = np.where(self.labels == 0)[0]
 
         idxs = np.concatenate([positive_idxs, negative_idxs])
 
         x_train, x_test, y_train, y_test = train_test_split(self.vectors[idxs], self.labels[idxs],
-                                                            test_size=0.2, stratify=self.labels[idxs], random_state=42)
-
+                                                            test_size=0.15, stratify=self.labels[idxs], random_state=42)
+        split_point = 60  # AJUSTÉ
         # Split pour Wide (premières 30 features) et TabTransformer (dernières 70 features)
-        self.x_train_wide, self.x_train_tab = x_train[:, :30], x_train[:, 30:]
-        self.x_test_wide, self.x_test_tab = x_test[:, :30], x_test[:, 30:]
+        self.x_train_wide, self.x_train_tab = x_train[:, :split_point], x_train[:, split_point:]
+        self.x_test_wide, self.x_test_tab = x_test[:, :split_point], x_test[:, split_point:]
 
         self.y_train = to_categorical(y_train)
         self.y_test = to_categorical(y_test)
 
         classes = np.array([0, 1])
         class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=self.labels)
+        class_weights[1] *= 1.5 
         self.class_weight = {index: weight for index, weight in enumerate(class_weights)}
 
         input_tab = Input(shape=(self.x_train_tab.shape[1], self.x_train_tab.shape[2]))
@@ -69,54 +73,82 @@ class WIDE_TabTransformer:
 
         # Apply TabTransformer avec plus de dropout
         tab_transformer = TabTransformer(
-            num_heads=6,
-            key_dim=32,
-            ff_dim=128,
-            num_layers=2,
-            dropout_rate=0.4  # Augmenté de 0.15 à 0.3
+            num_heads=12,
+            key_dim=128,
+            ff_dim=512,
+            num_layers=6,
+            dropout_rate=0.1  # Augmenté de 0.15 à 0.3
         )(tab)
 
-        # Réduction dimensionnelle avec régularisation
-        tab_reduced = Dense(64, activation='relu', 
-                        kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(tab_transformer)
+         # Architecture plus profonde et complexe
+        tab_reduced = Dense(256, activation='gelu',  # AUGMENTÉ et changé activation
+                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005),  # RÉDUIT
+                           kernel_initializer='he_normal')(tab_transformer)
         tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.5)(tab_reduced)  # Dropout plus élevé
-        tab_reduced = Dense(32, activation='relu',
-                        kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(tab_reduced)
-        tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.4)(tab_reduced)
+        tab_reduced = Dropout(0.15)(tab_reduced)  # RÉDUIT
 
-        # Traitement de la partie wide avec régularisation
-        wide_processed = Dense(16, activation='relu',
-                            kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(wide)
+        tab_reduced = Dense(128, activation='gelu',
+                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(tab_reduced)
+        tab_reduced = BatchNormalization()(tab_reduced)
+        tab_reduced = Dropout(0.1)(tab_reduced)
+
+        tab_reduced = Dense(64, activation='gelu',  # COUCHE AJOUTÉE
+                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(tab_reduced)
+        tab_reduced = BatchNormalization()(tab_reduced)
+        tab_reduced = Dropout(0.1)(tab_reduced)
+
+        # Partie Wide plus complexe
+        wide_processed = Dense(64, activation='gelu',  # AUGMENTÉ
+                              kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(wide)
         wide_processed = BatchNormalization()(wide_processed)
-        wide_processed = Dropout(0.4)(wide_processed)
+        wide_processed = Dropout(0.1)(wide_processed)
 
-        # Flatten avant concatenation
+        wide_processed = Dense(32, activation='gelu',  # COUCHE AJOUTÉE
+                              kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(wide_processed)
+        wide_processed = BatchNormalization()(wide_processed)
+        wide_processed = Dropout(0.1)(wide_processed)
+
+        # Flatten
         wide_flattened = Flatten()(wide_processed)
         tab_flattened = Flatten()(tab_reduced)
         
-        # Fusion
+        # Fusion avec attention
         merged = Concatenate(axis=-1)([wide_flattened, tab_flattened])
         
-        # Couches finales avec moins de neurones et plus de régularisation
-        final_dense = Dense(32, activation='relu',  # Réduit de 128 à 64
-                        kernel_regularizer=l1_l2(l1=0.003, l2=0.003))(merged)
+        # Couches finales ultra-optimisées
+        final_dense = Dense(128, activation='gelu',  # AUGMENTÉ
+                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(merged)
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.6)(final_dense)  # Dropout élevé
-        
-        final_dense = Dense(16, activation='relu',  # Réduit de 64 à 32
-                        kernel_regularizer=l1_l2(l1=0.003, l2=0.003))(final_dense)
+        final_dense = Dropout(0.2)(final_dense)
+
+        final_dense = Dense(64, activation='gelu',
+                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(final_dense)
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.5)(final_dense)
+        final_dense = Dropout(0.15)(final_dense)
+
+        final_dense = Dense(32, activation='gelu',  # COUCHE AJOUTÉE
+                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(final_dense)
+        final_dense = BatchNormalization()(final_dense)
+        final_dense = Dropout(0.1)(final_dense)
         
         output = Dense(2, activation='softmax')(final_dense)
 
         model = Model(inputs=inputs, outputs=output)
         
-        # Optimizer avec learning rate plus faible
-        optimizer = Adam(learning_rate=5e-5)  # Réduit de 0.0005 à 0.0001
-        model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+        # Optimiseur ultra-optimisé
+        optimizer = Adam(
+            learning_rate=1e-4,      # AJUSTÉ
+            beta_1=0.9,              # AJUSTÉ
+            beta_2=0.999,            # AJUSTÉ
+            epsilon=1e-8,            # AJUSTÉ
+            clipnorm=1.0             # AJOUTÉ - gradient clipping
+        )
+        
+        model.compile(
+            optimizer=optimizer, 
+            loss='binary_crossentropy',
+            metrics=['accuracy', 'precision', 'recall']  # AJOUTÉ plus de métriques
+        )
 
         return model
 
@@ -124,16 +156,26 @@ class WIDE_TabTransformer:
         # Callbacks pour améliorer l'apprentissage
         early_stopping = EarlyStopping(
             monitor='val_loss',
-            patience=15,  # Arrêt si pas d'amélioration pendant 8 epochs
+            patience=25,  # Arrêt si pas d'amélioration pendant 8 epochs
             restore_best_weights=True,
-            verbose=1
+            verbose=1,
+            mode ='max'
         )
         
         reduce_lr = ReduceLROnPlateau(
             monitor='val_loss',
-            factor=0.5,  # Divise le LR par 2
-            patience=6,  # Réduit le LR si pas d'amélioration pendant 4 epochs
-            min_lr=1e-6,
+            factor=0.2,  # Divise le LR par 2
+            patience=10,  # Réduit le LR si pas d'amélioration pendant 4 epochs
+            min_lr=1e-7,
+            verbose=1,
+            mode = 'max'
+        )
+
+        checkpoint = ModelCheckpoint(
+            'best_model.h5',
+            monitor='val_accuracy',
+            save_best_only=True,
+            mode='max',
             verbose=1
         )
         
@@ -143,8 +185,9 @@ class WIDE_TabTransformer:
             class_weight=self.class_weight,
             verbose=1,
             batch_size=self.batch_size,
-            validation_split=0.2,  # Augmenté de 0.1 à 0.2
-            callbacks=[early_stopping, reduce_lr]
+            validation_split=0.25,  # Augmenté de 0.1 à 0.2
+            callbacks=[early_stopping, reduce_lr, checkpoint],
+            shuffle=True
         )
         
         return history

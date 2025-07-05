@@ -11,10 +11,10 @@ args = parameter_parser()
 
 class TabTransformer(Layer):
     def __init__(self, 
-                 num_heads=4, 
-                 key_dim=32, 
-                 ff_dim=128, 
-                 num_layers=2, 
+                 num_heads=12, 
+                 key_dim=128, 
+                 ff_dim=512, 
+                 num_layers=6, 
                  dropout_rate=args.dropout, 
                  **kwargs):
         self.num_heads = num_heads
@@ -28,30 +28,32 @@ class TabTransformer(Layer):
         self.feature_dim = input_shape[-1]
         
         # Projection layer to convert features to transformer dimension
-        self.projection = Dense(self.key_dim * self.num_heads, activation='relu')
+        self.projection = Dense(self.key_dim * self.num_heads, activation='gelu', kernel_initializer='he_normal')
         
         # Transformer blocks
         self.transformer_blocks = []
-        for _ in range(self.num_layers):
+        for i in range(self.num_layers):
+            layer_dropout = self.dropout_rate * (1 + i * 0.1)
             self.transformer_blocks.append({
                 'mha': MultiHeadAttention(
                     num_heads=self.num_heads,
                     key_dim=self.key_dim,
-                    dropout=self.dropout_rate
+                    dropout=layer_dropout,
+                    kernel_initializer='glorot_uniform'
                 ),
                 'ffn': [
-                    Dense(self.ff_dim, activation='relu'),
-                    Dropout(self.dropout_rate),
-                    Dense(self.key_dim * self.num_heads)
+                    Dense(self.ff_dim, activation='gelu', kernel_initializer='he_normal'),
+                    Dropout(layer_dropout),
+                    Dense(self.key_dim * self.num_heads,kernel_initializer='glorot_uniform')
                 ],
                 'layernorm1': LayerNormalization(epsilon=1e-6),
                 'layernorm2': LayerNormalization(epsilon=1e-6),
-                'dropout1': Dropout(self.dropout_rate),
-                'dropout2': Dropout(self.dropout_rate)
+                'dropout1': Dropout(layer_dropout),
+                'dropout2': Dropout(layer_dropout)
             })
         
         # Final projection
-        self.final_projection = Dense(self.key_dim * self.num_heads, activation='relu')
+        self.final_projection = Dense(self.key_dim * self.num_heads * 2, activation='gelu', kernel_initializer='he_normal')
         
         super(TabTransformer, self).build(input_shape)
     
