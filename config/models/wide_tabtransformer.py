@@ -242,3 +242,93 @@ class WIDE_TabTransformer:
         print(f"Training accuracy finale: {history.history['accuracy'][-1]:.4f}")
         print(f"Validation accuracy finale: {history.history['val_accuracy'][-1]:.4f}")
         print(f"Écart (overfitting): {history.history['accuracy'][-1] - history.history['val_accuracy'][-1]:.4f}")
+
+    def augment_data(self, vectors, labels):
+        """
+        Data augmentation method to balance the dataset and improve model performance
+        """
+        # Find positive and negative samples
+        positive_indices = np.where(labels == 1)[0]
+        negative_indices = np.where(labels == 0)[0]
+        
+        print(f"Original dataset: {len(positive_indices)} positive, {len(negative_indices)} negative")
+        
+        # Calculate how many samples to augment
+        pos_count = len(positive_indices)
+        neg_count = len(negative_indices)
+        
+        augmented_vectors = []
+        augmented_labels = []
+        
+        # Keep original data
+        augmented_vectors.extend(vectors)
+        augmented_labels.extend(labels)
+        
+        # Augment minority class (if needed)
+        if pos_count < neg_count:
+            # Augment positive samples
+            minority_indices = positive_indices
+            minority_label = 1
+            samples_needed = neg_count - pos_count
+        else:
+            # Augment negative samples
+            minority_indices = negative_indices
+            minority_label = 0
+            samples_needed = pos_count - neg_count
+        
+        # Generate augmented samples
+        for _ in range(samples_needed):
+            # Randomly select a sample from minority class
+            idx = np.random.choice(minority_indices)
+            original_vector = vectors[idx]
+            
+            # Apply augmentation techniques
+            augmented_vector = self.apply_augmentation(original_vector)
+            
+            augmented_vectors.append(augmented_vector)
+            augmented_labels.append(minority_label)
+        
+        # Convert back to numpy arrays
+        augmented_vectors = np.array(augmented_vectors)
+        augmented_labels = np.array(augmented_labels)
+        
+        print(f"Augmented dataset: {len(augmented_vectors)} total samples")
+        print(f"Positive samples: {np.sum(augmented_labels == 1)}")
+        print(f"Negative samples: {np.sum(augmented_labels == 0)}")
+        
+        return augmented_vectors, augmented_labels
+
+    def apply_augmentation(self, vector):
+        """
+        Apply various augmentation techniques to a single vector
+        """
+        augmented = vector.copy()
+        
+        # Technique 1: Add small random noise
+        noise_factor = 0.01
+        noise = np.random.normal(0, noise_factor, augmented.shape)
+        augmented += noise
+        
+        # Technique 2: Random scaling
+        scale_factor = np.random.uniform(0.95, 1.05)
+        augmented *= scale_factor
+        
+        # Technique 3: Random feature dropout (set some features to zero)
+        dropout_rate = 0.05
+        dropout_mask = np.random.random(augmented.shape) > dropout_rate
+        augmented *= dropout_mask
+        
+        # Technique 4: Small random rotations in feature space
+        if len(augmented.shape) > 1:
+            for i in range(augmented.shape[0]):
+                if np.random.random() < 0.1:  # 10% chance to rotate
+                    rotation_angle = np.random.uniform(-0.1, 0.1)
+                    # Simple rotation for 2D features
+                    if augmented.shape[1] >= 2:
+                        cos_theta = np.cos(rotation_angle)
+                        sin_theta = np.sin(rotation_angle)
+                        x, y = augmented[i, 0], augmented[i, 1]
+                        augmented[i, 0] = x * cos_theta - y * sin_theta
+                        augmented[i, 1] = x * sin_theta + y * cos_theta
+        
+        return augmented
