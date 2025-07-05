@@ -167,35 +167,35 @@ class WIDE_TabTransformer:
         print('F1 score: ', (2 * precision * recall) / (precision + recall))
     
     
-def plot_training_curves(self, history):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    def plot_training_curves(self, history):
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
-    # Courbe d'accuracy
-    ax1.plot(history.history['accuracy'], label='Training Accuracy', color='blue')
-    ax1.plot(history.history['val_accuracy'], label='Validation Accuracy', color='red')
-    ax1.set_title('Model Accuracy')
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Accuracy')
-    ax1.legend()
-    ax1.grid(True)
+        # Courbe d'accuracy
+        ax1.plot(history.history['accuracy'], label='Training Accuracy', color='blue')
+        ax1.plot(history.history['val_accuracy'], label='Validation Accuracy', color='red')
+        ax1.set_title('Model Accuracy')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Accuracy')
+        ax1.legend()
+        ax1.grid(True)
 
-    # Courbe de loss
-    ax2.plot(history.history['loss'], label='Training Loss', color='blue')
-    ax2.plot(history.history['val_loss'], label='Validation Loss', color='red')
-    ax2.set_title('Model Loss')
-    ax2.set_xlabel('Epoch')
-    ax2.set_ylabel('Loss')
-    ax2.legend()
-    ax2.grid(True)
+        # Courbe de loss
+        ax2.plot(history.history['loss'], label='Training Loss', color='blue')
+        ax2.plot(history.history['val_loss'], label='Validation Loss', color='red')
+        ax2.set_title('Model Loss')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Loss')
+        ax2.legend()
+        ax2.grid(True)
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
 
-    # Analyse des résultats
-    best_val_acc = max(history.history['val_accuracy'])
-    best_epoch = history.history['val_accuracy'].index(best_val_acc) + 1
+        # Analyse des résultats
+        best_val_acc = max(history.history['val_accuracy'])
+        best_epoch = history.history['val_accuracy'].index(best_val_acc) + 1
 
-    print(f"\nMeilleure validation accuracy: {best_val_acc:.4f} à l'epoch {best_epoch}")
-    print(f"Training accuracy finale: {history.history['accuracy'][-1]:.4f}")
-    print(f"Validation accuracy finale: {history.history['val_accuracy'][-1]:.4f}")
-    print(f"Écart (overfitting): {history.history['accuracy'][-1] - history.history['val_accuracy'][-1]:.4f}")
+        print(f"\nMeilleure validation accuracy: {best_val_acc:.4f} à l'epoch {best_epoch}")
+        print(f"Training accuracy finale: {history.history['accuracy'][-1]:.4f}")
+        print(f"Validation accuracy finale: {history.history['val_accuracy'][-1]:.4f}")
+        print(f"Écart (overfitting): {history.history['accuracy'][-1] - history.history['val_accuracy'][-1]:.4f}")
