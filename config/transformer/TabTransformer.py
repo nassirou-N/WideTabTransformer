@@ -44,7 +44,7 @@ class TabTransformer(Layer):
                 'ffn': [
                     Dense(self.ff_dim, activation='gelu', kernel_initializer='he_normal'),
                     Dropout(layer_dropout),
-                    Dense(self.key_dim * self.num_heads,kernel_initializer='glorot_uniform')
+                    Dense(self.key_dim * self.num_heads, kernel_initializer='glorot_uniform')
                 ],
                 'layernorm1': LayerNormalization(epsilon=1e-6),
                 'layernorm2': LayerNormalization(epsilon=1e-6),
@@ -52,8 +52,8 @@ class TabTransformer(Layer):
                 'dropout2': Dropout(layer_dropout)
             })
         
-        # Final projection
-        self.final_projection = Dense(self.key_dim * self.num_heads * 2, activation='gelu', kernel_initializer='he_normal')
+        # CORRIGÉ: Réduire la dimension de sortie finale
+        self.final_projection = Dense(self.key_dim, activation='gelu', kernel_initializer='he_normal')
         
         super(TabTransformer, self).build(input_shape)
     
@@ -82,7 +82,8 @@ class TabTransformer(Layer):
         return output
     
     def compute_output_shape(self, input_shape):
-        return input_shape[:-1] + (self.key_dim * self.num_heads,)
+        # CORRIGÉ: Mettre à jour la forme de sortie
+        return input_shape[:-1] + (self.key_dim,)
     
     def get_config(self):
         config = super(TabTransformer, self).get_config()
