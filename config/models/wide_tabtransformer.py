@@ -118,21 +118,27 @@ class WIDE_TabTransformer:
         Augmentation plus modérée
         """
         augmented = vector.copy()
-        
+        """ 
         # Technique 1: Bruit plus léger
         noise_factor = 0.005  # Réduire de 0.01 à 0.005
-        noise = np.random.normal(0, noise_factor, augmented.shape)
+        noise = np.random.normal(0, noise_factor, size=augmented.shape)
         augmented += noise
         
         # Technique 2: Scaling plus conservateur
         scale_factor = np.random.uniform(0.98, 1.02)  # Réduire de 0.95-1.05 à 0.98-1.02
-        augmented *= scale_factor
+        augmented += scale_factor
         
         # Technique 3: Dropout plus léger
-        dropout_rate = 0.02  # Réduire de 0.05 à 0.02
+        dropout_rate = 0.1  # Réduire de 0.05 à 0.02
         dropout_mask = np.random.random(augmented.shape) > dropout_rate
-        augmented *= dropout_mask        
-        return augmented
+        augmented *= dropout_mask """
+        # augmented_vector = vector.copy()
+    
+        # Add Gaussian noise with moderate intensity
+        noise_std = 0.05  # 5% noise
+        noise = np.random.normal(0, noise_std, size=vector.shape)
+        augmented_vector = augmented_vector + noise
+        return augmented_vector
 
     def build_model(self, inputs):
         wide = Normalization()(inputs[0])
