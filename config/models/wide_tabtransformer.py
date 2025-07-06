@@ -137,7 +137,7 @@ class WIDE_TabTransformer:
         # Add Gaussian noise with moderate intensity
         noise_std = 0.05  # 5% noise
         noise = np.random.normal(0, noise_std, size=vector.shape)
-        augmented_vector = augmented_vector + noise
+        augmented_vector = augmented + noise
         return augmented_vector
 
     def build_model(self, inputs):
