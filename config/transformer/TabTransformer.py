@@ -11,11 +11,11 @@ args = parameter_parser()
 
 class TabTransformer(Layer):
     def __init__(self, 
-                 num_heads=8, 
-                 key_dim=64, 
-                 ff_dim=256, 
-                 num_layers=4, 
-                 dropout_rate=0.3, 
+                 num_heads=10, 
+                 key_dim=96, 
+                 ff_dim=384, 
+                 num_layers=5, 
+                 dropout_rate=0.2, 
                  **kwargs):
         self.num_heads = num_heads
         self.key_dim = key_dim
@@ -33,7 +33,7 @@ class TabTransformer(Layer):
         # Transformer blocks
         self.transformer_blocks = []
         for i in range(self.num_layers):
-            layer_dropout = self.dropout_rate * (1 + i * 0.2)
+            layer_dropout = self.dropout_rate * (1 + i * 0.15)
             self.transformer_blocks.append({
                 'mha': MultiHeadAttention(
                     num_heads=self.num_heads,
