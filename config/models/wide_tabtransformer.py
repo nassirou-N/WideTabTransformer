@@ -93,12 +93,12 @@ class WIDE_TabTransformer:
             # Augment positive samples
             minority_indices = positive_indices
             minority_label = 1
-            samples_needed = neg_count - pos_count
+            samples_needed = min(neg_count - pos_count, pos_count // 2)
         else:
             # Augment negative samples
             minority_indices = negative_indices
             minority_label = 0
-            samples_needed = pos_count - neg_count
+            samples_needed = min(pos_count - neg_count, neg_count // 2)
         
         # Generate augmented samples
         for _ in range(samples_needed):
@@ -163,65 +163,50 @@ class WIDE_TabTransformer:
 
         # Apply TabTransformer avec plus de dropout
         tab_transformer = TabTransformer(
-            num_heads=12,
-            key_dim=128,
-            ff_dim=512,
-            num_layers=6,
-            dropout_rate=0.1
+            num_heads=8,
+            key_dim=64,
+            ff_dim=256,
+            num_layers=4,
+            dropout_rate=0.3
         )(tab)
 
         # IMPORTANT: Flatten the TabTransformer output first
         tab_transformer_flat = Flatten()(tab_transformer)
 
         # Architecture plus profonde et complexe
-        tab_reduced = Dense(256, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005),
-                           kernel_initializer='he_normal')(tab_transformer_flat)
+        tab_reduced = Dense(128, activation='gelu',  # Réduire de 256 à 128
+                   kernel_regularizer=l1_l2(l1=0.001, l2=0.001),  # Augmenter la régularisation
+                   kernel_initializer='he_normal')(tab_transformer_flat)
         tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.15)(tab_reduced)
+        tab_reduced = Dropout(0.4)(tab_reduced)  # Augmenter de 0.15 à 0.4
 
-        tab_reduced = Dense(128, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(tab_reduced)
+        tab_reduced = Dense(64, activation='gelu',  # Réduire de 128 à 64
+                        kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(tab_reduced)
         tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.1)(tab_reduced)
-
-        tab_reduced = Dense(64, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(tab_reduced)
-        tab_reduced = BatchNormalization()(tab_reduced)
-        tab_reduced = Dropout(0.1)(tab_reduced)
+        tab_reduced = Dropout(0.3)(tab_reduced) # Augmenter de 0.1 à 0.3        
 
         # Flatten the wide input first
         wide_flat = Flatten()(wide)
 
         # Partie Wide plus complexe
-        wide_processed = Dense(64, activation='gelu',
-                              kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(wide_flat)
+        wide_processed = Dense(32, activation='gelu',  # Réduire de 64 à 32
+                      kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(wide_flat)
         wide_processed = BatchNormalization()(wide_processed)
-        wide_processed = Dropout(0.1)(wide_processed)
-
-        wide_processed = Dense(32, activation='gelu',
-                              kernel_regularizer=l1_l2(l1=0.0005, l2=0.0005))(wide_processed)
-        wide_processed = BatchNormalization()(wide_processed)
-        wide_processed = Dropout(0.1)(wide_processed)
+        wide_processed = Dropout(0.3)(wide_processed) 
 
         # Now both wide_processed and tab_reduced are 1D, so we can concatenate directly
         merged = Concatenate(axis=-1)([wide_processed, tab_reduced])
         
         # Couches finales ultra-optimisées
-        final_dense = Dense(128, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(merged)
+        final_dense = Dense(64, activation='gelu',  # Réduire de 128 à 64
+                   kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(merged)  # Augmenter la régularisation
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.2)(final_dense)
+        final_dense = Dropout(0.5)(final_dense)  # Augmenter de 0.2 à 0.5
 
-        final_dense = Dense(64, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(final_dense)
+        final_dense = Dense(32, activation='gelu',  # Réduire de 64 à 32
+                   kernel_regularizer=l1_l2(l1=0.002, l2=0.002))(final_dense)
         final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.15)(final_dense)
-
-        final_dense = Dense(32, activation='gelu',
-                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001))(final_dense)
-        final_dense = BatchNormalization()(final_dense)
-        final_dense = Dropout(0.1)(final_dense)
+        final_dense = Dropout(0.4)(final_dense)
         
         output = Dense(2, activation='softmax')(final_dense)
 
@@ -229,11 +214,11 @@ class WIDE_TabTransformer:
         
         # Optimiseur ultra-optimisé
         optimizer = Adam(
-            learning_rate=1e-4,
+            learning_rate=5e-5,
             beta_1=0.9,
             beta_2=0.999,
             epsilon=1e-8,
-            clipnorm=1.0
+            clipnorm=0.5
         )
         
         model.compile(
@@ -248,7 +233,7 @@ class WIDE_TabTransformer:
         # Callbacks pour améliorer l'apprentissage
         early_stopping = EarlyStopping(
             monitor='val_loss',
-            patience=25,
+            patience=15,
             restore_best_weights=True,
             verbose=1,
             mode='min'  # CORRIGÉ: 'min' pour val_loss
@@ -256,9 +241,9 @@ class WIDE_TabTransformer:
         
         reduce_lr = ReduceLROnPlateau(
             monitor='val_loss',
-            factor=0.2,
-            patience=10,
-            min_lr=1e-7,
+            factor=0.3,
+            patience=5,
+            min_lr=1e-8,
             verbose=1,
             mode='min'  # CORRIGÉ: 'min' pour val_loss
         )
@@ -267,7 +252,7 @@ class WIDE_TabTransformer:
             'best_model.h5',
             monitor='val_accuracy',
             save_best_only=True,
-            mode='max',
+            mode='min',
             verbose=1
         )
         
@@ -277,7 +262,7 @@ class WIDE_TabTransformer:
             class_weight=self.class_weight,
             verbose=1,
             batch_size=self.batch_size,
-            validation_split=0.25,
+            validation_split=0.3,
             callbacks=[early_stopping, reduce_lr, checkpoint],
             shuffle=True
         )
